@@ -53,3 +53,31 @@ Mission 1:
   高级优先级调度：
   模拟？
 
+
+
+
+Misssion 1:
+ assert :断言：若表达式结果为假，则报错
+ enum：枚举，包含多个无符号整数的集合，值递增1
+
+ 整个大概的流程：
+ 首先，尽量把loops_per_tick尽量搞大（用 too_many_loops())（分别高、低位，较快
+   too_many_loopsd的逻辑：
+    先等到一个整点tick，当经过了这么多循环后，返回是否还在同一个tick间隔内
+ ，让其尽可能大，可以比较少的占用cpu资源？
+ 其次，整个程序中大致分为两类函数，delay和sleep，
+sleep类函数：
+必须设置为可中断
+调用real_time_sleep(),这个函数会计算出滴答数后调用timer_sleep，
+     timer_sleep： 在没有到达某滴答前令进程持续yield（）
+如果不足1个滴答，就调用real_time_delay（）进行等待。
+
+delay类函数：
+不必要设置成可中断
+同样调用real_time_delay进行
+      real_time_delay（）：调用busy_wait()混日子
+      busy_wait()：一个防止优化的持续减法循环，地道的忙等待
+
+timer_interrupt 和timer_ticks暂时还没看懂
+
+

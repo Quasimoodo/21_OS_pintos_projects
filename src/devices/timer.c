@@ -10,7 +10,7 @@
   
 /* See [8254] for hardware details of the 8254 timer chip. */
 
-#if TIMER_FREQ < 19
+#if TIMER_FREQ < 19//这是啥
 #error 8254 timer requires TIMER_FREQ >= 19
 #endif
 #if TIMER_FREQ > 1000
@@ -39,7 +39,7 @@ timer_init (void)
   intr_register_ext (0x20, timer_interrupt, "8254 Timer");
 }
 
-/* Calibrates loops_per_tick, used to implement brief delays. */
+/* Calibrates loops_per_tick, used to implement brief delays. *///通过too_many_loops（）检测，让loops_per_tick尽可能大
 void
 timer_calibrate (void) 
 {
@@ -77,7 +77,7 @@ timer_ticks (void)
 }
 
 /* Returns the number of timer ticks elapsed since THEN, which
-   should be a value once returned by timer_ticks(). */
+   should be a value once returned by timer_ticks(). *///返回某个值以后的 time ticks数
 int64_t
 timer_elapsed (int64_t then) 
 {
@@ -87,7 +87,7 @@ timer_elapsed (int64_t then)
 /* Sleeps for approximately TICKS timer ticks.  Interrupts must
    be turned on. */
 void
-timer_sleep (int64_t ticks) 
+timer_sleep (int64_t ticks) //持续检查，不到就yield，就是题中所说的忙等待
 {
   int64_t start = timer_ticks ();
 
@@ -96,6 +96,7 @@ timer_sleep (int64_t ticks)
     thread_yield ();
 }
 
+//都需要设置为可中断
 /* Sleeps for approximately MS milliseconds.  Interrupts must be
    turned on. */
 void
@@ -120,6 +121,7 @@ timer_nsleep (int64_t ns)
   real_time_sleep (ns, 1000 * 1000 * 1000);
 }
 
+//不需要可中断的设置
 /* Busy-waits for approximately MS milliseconds.  Interrupts need
    not be turned on.
 
@@ -168,21 +170,21 @@ timer_print_stats (void)
 
 /* Timer interrupt handler. */
 static void
-timer_interrupt (struct intr_frame *args UNUSED)
+timer_interrupt (struct intr_frame *args UNUSED)//在外部中断上下文运行？
 {
   ticks++;
   thread_tick ();
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer
-   tick, otherwise false. */
+   tick, otherwise false. *///确保循环在1个滴答之间
 static bool
 too_many_loops (unsigned loops) 
 {
   /* Wait for a timer tick. */
   int64_t start = ticks;
   while (ticks == start)
-    barrier ();
+    barrier ();//防止优化？
 
   /* Run LOOPS loops. */
   start = ticks;
@@ -199,7 +201,7 @@ too_many_loops (unsigned loops)
    Marked NO_INLINE because code alignment can significantly
    affect timings, so that if this function was inlined
    differently in different places the results would be difficult
-   to predict. */
+   to predict. *///就是通过这样的朴素循环度过时间，防止内联优化导致时序错误
 static void NO_INLINE
 busy_wait (int64_t loops) 
 {
