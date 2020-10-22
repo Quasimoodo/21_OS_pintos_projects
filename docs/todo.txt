@@ -1,0 +1,55 @@
+要做的东西：
+  /threads
+  /devices
+
+//老师的要求：
+  将已有代码和目标之间做一个需求分析
+//官方的要求：
+
+文档写作：重要
+  数据结构：
+    说明新增或改变的结构体、全局或静态变量等，并附简短说明（25words)
+  算法：
+    说明代码如何工作，（原理上的），参考assignment写作
+    Mission 1：
+      形容在调用timer_sleep()的时候发生了什么，包括中断应对器(?)的效果
+      如何让中断应对器(timer interrupt handler)少花时间？
+    Mission 2：
+
+    Mission 3：
+  同步：
+    选择某一特定同步方法的理由
+    Mission 1：
+      多线程调用时，如何解决timer_sleep()的竞争？
+      调用timer_sleep()时发生中断，如何解决？
+  基本原理：
+    设计决策的合理性，可以从时空复杂度出发，不需要证明(还要说到其他考虑到但没有使用的设计模式，优越之处何在)
+
+    具体pintos文档模板见.\template_threads.tmpl
+
+Mission 1:
+重新实现timer_sleep()，在devices / timer.c中定义
+  重新实现其功能（已有），但改变其忙等待机制（busy waiting)
+   忙等待：连续测试某一变量直到其出现某一值为止。
+  现在的实现方式：循环，不断调用thread_yield()，直到经过了足够的时间。
+
+  功能：暂停进程，在指定时间（timer ticks)后，将其加入ready queue中
+
+  Mission 2：
+  解决优先级调度问题：
+  thread / thread.c
+  当一个有着更高优先级的线程被添加到就绪列表中，当前线程应该切换。
+  当线程被阻塞时，也应就绪列表中的最高优先级线程。
+  实现以下函数：
+   void thread_set_priority（int new_priority）
+    将当前线程的优先级设置为new_priority。如果当前线程不再具有最高优先级，则屈服。
+   int thread_get_priority（void）
+    返回当前线程的优先级。在存在优先级捐赠的情况下，返回较高（捐赠的）优先级。
+  主要问题:
+   优先级倒置
+   (?)为什么会有这种问题
+   不会在以后使用
+ Mission 3：
+  高级优先级调度：
+  模拟？
+
