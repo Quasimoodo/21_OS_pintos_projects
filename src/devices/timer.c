@@ -89,11 +89,22 @@ timer_elapsed (int64_t then)
 void
 timer_sleep (int64_t ticks) //持续检查，不到就yield，就是题中所说的忙等待
 {//获得函数运行时的ticks，然后不断检查当前ticks和初始的差是否达到参数，过程中持续yeild
+/*原来的
   int64_t start = timer_ticks ();
 
   ASSERT (intr_get_level () == INTR_ON);
   while (timer_elapsed (start) < ticks) 
     thread_yield ();
+    */
+   if(ticks<=0)
+   return;
+   enum intr_level old_level=intr_disable();
+  // ASSERT (!intr_context ());
+   struct thread *cur = thread_current ();
+   cur->ticks_to_block=ticks;
+   thread_block();
+   intr_set_level (old_level);
+
 }
 
 //都需要设置为可中断
@@ -174,6 +185,7 @@ timer_interrupt (struct intr_frame *args UNUSED)//在外部中断上下文运行
 {
   ticks++;
   thread_tick ();
+  thread_foreach(check_blocked_thread,NULL);
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer

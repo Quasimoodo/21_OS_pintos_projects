@@ -30,26 +30,48 @@ FirstName LastName <email@domain.example>
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
 
+   int64_t ticks_to_block;              /* 保存要阻塞的ticks数，以便改为睡眠时间足够就唤醒 */
+   在thread.h中92行
 ---- ALGORITHMS ----
 
 >> A2: Briefly describe what happens in a call to timer_sleep(),
 >> including the effects of the timer interrupt handler.
+将timer_sleep()的内容重做：
+ 原子操作：设定当前线程的toblock数，然后将其block。在block期间是不响应中断的，block():直接schedule()
+ 在每个timer_interrupt()的时候，调用将每个线程检查其block，若正在block，则减一个ticks，若ticks_toblock为0，则将其unblock()；
+ unblock():将其放入readyqueue中
+ 同时设置创建时的toblock为0；
 
 >> A3: What steps are taken to minimize the amount of time spent in
 >> the timer interrupt handler?
+不知道咋回答 好像没少花时间的设计空间
 
 ---- SYNCHRONIZATION ----
 
 >> A4: How are race conditions avoided when multiple threads call
 >> timer_sleep() simultaneously?
+会分别调用 
+enum intr_level old_level=intr_disable();
+和
+intr_set_level (old_level);
+这两句在需要原子化操作的语句两边，避免竞争条件的产生。
+，来保障设置ticks和进入block中间不会因线程竞争而打断。
+这两句的作用分别是：
+获取当前可中断状态，屏蔽可屏蔽中断
+和
+恢复之前线程的中断状态
 
 >> A5: How are race conditions avoided when a timer interrupt occurs
 >> during a call to timer_sleep()?
+  在唯一能调用timer_sleep()的real_time_sleep ()只有在ticks大于0是才会调用，
+  切timer_sleep()在核心操作时会屏蔽可屏蔽中断
+
 
 ---- RATIONALE ----
 
 >> A6: Why did you choose this design?  In what ways is it superior to
 >> another design you considered?
+暂时只想到了这一个设计，实现简单，效果也比较好
 
              PRIORITY SCHEDULING
              ===================

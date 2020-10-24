@@ -143,5 +143,15 @@ is_thread()
   s是否指向有效线程
 }
 
+问题：
+ 
+  为什么timer.c 99，100行的内容必须？
+  如何实现的每个tick调用一次中断？
+解决:
+ 将timer_sleep()的内容重做：
+ 原子操作：设定当前线程的toblock数，然后将其block。在block期间是不响应中断的，block():直接schedule()
+ 在每个timer_interrupt()的时候，调用将每个线程检查其block，若正在block，则减一个ticks，若ticks_toblock为0，则将其unblock()；
+ unblock():将其放入readyqueue中
+ 同时设置创建时的toblock为0；
 
 

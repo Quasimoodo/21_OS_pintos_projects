@@ -208,6 +208,7 @@ thread_create (const char *name, int priority,
 
   /* Add to run queue. */
   thread_unblock (t);
+  t->ticks_to_block=0;
 
   return tid;
 }
@@ -221,7 +222,7 @@ thread_create (const char *name, int priority,
 void
 thread_block (void) 
 {
-  ASSERT (!intr_context ());
+  ASSERT (!intr_context ());//检查是否处于外中断
   ASSERT (intr_get_level () == INTR_OFF);
 
   thread_current ()->status = THREAD_BLOCKED;
@@ -566,6 +567,18 @@ schedule (void)
   if (cur != next)
     prev = switch_threads (cur, next);
   thread_schedule_tail (prev);
+}
+/*new  check a thread either should be unlocked or continue block,des a tick*/
+void check_blocked_thread (struct thread *t, void *aux UNUSED)
+{
+  if(t->status== THREAD_BLOCKED&& t->ticks_to_block>0)//正在被阻塞的线程
+  {
+    t->ticks_to_block--;
+    if(t->ticks_to_block==0)
+    {
+      thread_unblock(t);
+    }
+  }
 }
 
 /* Returns a tid to use for a new thread. */
