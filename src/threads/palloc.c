@@ -120,7 +120,7 @@ palloc_free_multiple (void *pages, size_t page_cnt)
   struct pool *pool;
   size_t page_idx;
 
-  ASSERT (pg_ofs (pages) == 0);
+  ASSERT (pg_ofs (pages) == 0);//页指针应指向线程结构体
   if (pages == NULL || page_cnt == 0)
     return;
 
@@ -131,10 +131,10 @@ palloc_free_multiple (void *pages, size_t page_cnt)
   else
     NOT_REACHED ();
 
-  page_idx = pg_no (pages) - pg_no (pool->base);
+  page_idx = pg_no (pages) - pg_no (pool->base);//计算出页id
 
 #ifndef NDEBUG
-  memset (pages, 0xcc, PGSIZE * page_cnt);
+  memset (pages, 0xcc, PGSIZE * page_cnt);//清空页指针
 #endif
 
   ASSERT (bitmap_all (pool->used_map, page_idx, page_cnt));

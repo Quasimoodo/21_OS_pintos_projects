@@ -70,9 +70,9 @@ timer_calibrate (void)
 int64_t
 timer_ticks (void) 
 {
-  enum intr_level old_level = intr_disable ();
+  enum intr_level old_level = intr_disable ();//屏蔽中断
   int64_t t = ticks;
-  intr_set_level (old_level);
+  intr_set_level (old_level);//恢复之前中断状态
   return t;
 }
 
@@ -88,7 +88,7 @@ timer_elapsed (int64_t then)
    be turned on. */
 void
 timer_sleep (int64_t ticks) //持续检查，不到就yield，就是题中所说的忙等待
-{
+{//获得函数运行时的ticks，然后不断检查当前ticks和初始的差是否达到参数，过程中持续yeild
   int64_t start = timer_ticks ();
 
   ASSERT (intr_get_level () == INTR_ON);

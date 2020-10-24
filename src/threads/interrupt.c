@@ -60,7 +60,7 @@ static inline uint64_t make_idtr_operand (uint16_t limit, void *base);
 void intr_handler (struct intr_frame *args);
 static void unexpected_interrupt (const struct intr_frame *);
 
-/* Returns the current interrupt status. */
+/* Returns the current interrupt status.是否可中断 */
 enum intr_level
 intr_get_level (void) 
 {
@@ -70,7 +70,7 @@ intr_get_level (void)
      value off the stack into `flags'.  See [IA32-v2b] "PUSHF"
      and "POP" and [IA32-v3a] 5.8.1 "Masking Maskable Hardware
      Interrupts". */
-  asm volatile ("pushfl; popl %0" : "=g" (flags));
+  asm volatile ("pushfl; popl %0" : "=g" (flags));//单纯判断而已
 
   return flags & FLAG_IF ? INTR_ON : INTR_OFF;
 }
@@ -88,7 +88,7 @@ enum intr_level
 intr_enable (void) 
 {
   enum intr_level old_level = intr_get_level ();
-  ASSERT (!intr_context ());
+  ASSERT (!intr_context ());//非外中断
 
   /* Enable interrupts by setting the interrupt flag.
 
@@ -108,7 +108,7 @@ intr_disable (void)
   /* Disable interrupts by clearing the interrupt flag.
      See [IA32-v2b] "CLI" and [IA32-v3a] 5.8.1 "Masking Maskable
      Hardware Interrupts". */
-  asm volatile ("cli" : : : "memory");
+  asm volatile ("cli" : : : "memory");//IF位置0，不响应可屏蔽中断
 
   return old_level;
 }
