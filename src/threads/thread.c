@@ -71,6 +71,20 @@ static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
 
+/* Check the blocked thread */
+void
+blocked_thread_check (struct thread *t, void *aux UNUSED)
+{
+  if (t->status == THREAD_BLOCKED && t->ticks_blocked > 0)
+  {
+      t->ticks_blocked--;
+      if (t->ticks_blocked == 0)
+      {
+          thread_unblock(t);
+      }
+  }
+}
+
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
    general and it is possible in this case only because loader.S
@@ -208,6 +222,7 @@ thread_create (const char *name, int priority,
 
   /* Add to run queue. */
   thread_unblock (t);
+  t->ticks_blocked = 0;
 
   return tid;
 }
@@ -585,3 +600,4 @@ allocate_tid (void)
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
+
