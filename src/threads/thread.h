@@ -126,6 +126,7 @@ const char *thread_name (void);
 void thread_exit (void) NO_RETURN;
 void thread_yield (void);
 void check_blocked_thread (struct thread *t, void *aux UNUSED);
+bool thread_cmp_priority(const struct list_elem *a, const struct list_elem *b, void *aux);
 
 /* Performs some operation on thread t, given auxiliary data AUX. */
 typedef void thread_action_func (struct thread *t, void *aux);
@@ -138,5 +139,6 @@ int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
+
 
 #endif /* threads/thread.h */

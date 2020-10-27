@@ -152,6 +152,110 @@ is_thread()
  原子操作：设定当前线程的toblock数，然后将其block。在block期间是不响应中断的，block():直接schedule()
  在每个timer_interrupt()的时候，调用将每个线程检查其block，若正在block，则减一个ticks，若ticks_toblock为0，则将其unblock()；
  unblock():将其放入readyqueue中
- 同时设置创建时的toblock为0；
+ 同时设置创建时的toblock为0；aob
 
 
+
+
+mission 2
+ 根据文档的设计，getpri和setpri都只需要实现对本现成的优先级调整就可以了
+ 
+ 先实现ready queue的优先队列，然后再实施优先级捐赠，实时轮转等功能。
+ 观察 已有的readyqueue怎么实现的：
+   list_push_back (&ready_list, &t->elem);
+   这一句可以将线程加入就绪队列，
+   list_push_back ()这一句调用list_insert (),
+   而ready queue的队列结构就是一个保存了头尾指针的双向链表
+
+ 要把这个双向链表用优先队列维护，看看有没有现成的？
+  list_insert_ordered
+  list_sort
+  按序插入和排序 应该都能用到
+
+在thread.c中搜索list_push_back()这种添加线程到就绪队列，发现只有
+ thread_yield()
+ thread_unblock()
+ 这两个函数这样用
+ 考虑改成list_insert_ordered
+ list_insert_ordered (struct list *list, struct list_elem *elem,
+                     list_less_func *less, void *aux)
+                  考虑这个比较函数怎么实现
+  照着list.h和别的引用线程的实现，完成函数
+  bool thread_cmp_priority(const struct list_elem *a, const struct list_elem *b, void *aux)
+  在thread.c的584行
+  在thread.h的129行声明
+  考虑在队列中的是线程结构体的list_elem,需要使用list_entry()函数来访问其结构体(以访问其pri)
+
+
+thread_block, thread_exit, and thread_yield;这三个函数会调用schedule()
+
+下来来看一些同步时的核心函数
+主要应用的结构体是
+lock
+{
+    struct thread *holder;      /* Thread holding lock (for debugging). */
+    struct semaphore semaphore; /* Binary semaphore controlling access. */
+  };
+  struct semaphore 
+  {
+    unsigned value;             /* Current value. */
+    struct list waiters;        /* List of waiting threads. */
+  };
+  锁和信号量这两个
+lock_init()
+{
+  lock的holder=0；
+  然后调用semaphore lock_init()
+  {
+
+
+  }
+}
+lock_acquire()
+{
+    断言所存在，无外中断，当前线程不持有锁
+  sema_down()
+  {
+    原子操作：
+    当sema的值==0时，将当前线程加入sema的waiterlist里，
+    然后block掉
+    获得锁了之后--
+  
+
+  }
+}
+//priority-change.c:在创建了新的线程和改变了当前线程优先级之后，就应该观察是否调整当前线程
+——改了和创建了就yield？
+//priority_preempt.c 创建了更高优先级的线程，将其不断yield但还每次轮到
+/——创建了就yield (如果新的比现在的要高)
+priority_sema.c 依次创建若干pri逐渐下降的线程，然后再释放锁。在每个县城内部等待锁
+——感觉只要实现最朴素的优先级捐赠就可以过
+——要考虑信号量更改了
+priority_fifo.c 大概是创建若干优先级相同而低于当前线程的线程，在内部不断重复获得锁——释放锁——yield的过程而保证其线程队列顺序不变
+——应该可以不用捐赠直接过？ 
+
+thread_create()，创建了就加入到就绪队列里
+
+对priority-donate-one的研究：
+在lock中记录一个pri,在acquire的时候记录其值，同时在create中加入检测锁的pri并重置
+在thread结构体中加一个被set的priority的栈，不断适应并逐级弹出
+
+维护的锁的waitlist也应该改成优先队列？
+
+
+
+
+
+
+
+
+
+
+
+
+问题：
+  为什么sema_down可以屏蔽那么久的中断？
+  一个线程的函数执行完了会咋样？
+
+
+`struct thread' is always at the beginning of a page
