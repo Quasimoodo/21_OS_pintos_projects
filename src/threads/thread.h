@@ -90,6 +90,9 @@ struct thread
     int priority;                       /* Priority. */
     struct list_elem allelem;           /* List element for all threads list. */
     int64_t ticks_to_block;              /* 保存要阻塞的ticks数，以便改为睡眠时间足够就唤醒 */
+    int ori-priority;                    /*保存最早的priority*/
+    struct lock lock_waiting;            /*当前等待的锁*/
+    struct list lock_helding;            /*当前持有的锁队列*/
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
 
