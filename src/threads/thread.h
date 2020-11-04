@@ -82,6 +82,10 @@ typedef int tid_t;
    blocked state is on a semaphore wait list. */
 struct thread
   {
+   /*add three teammates*/
+    int base_priority;
+    struct list locks;//进程占用的锁
+    struct lock *lock_waiting;//进程等待的锁
    /*add ticks_blocked*/
     int64_t ticks_blocked;
     /* Owned by thread.c. */
@@ -141,5 +145,10 @@ int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 void blocked_thread_check (struct thread *t, void *aux UNUSED);
 
+bool thread_cmp_priority (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
+void thread_donate_priority (struct thread *t);
+bool lock_cmp_priority(const struct list_elem *a, const struct list_elem *b,void *aux UNUSED);
+void thread_remove_lock (struct lock *lock);
+void thread_update_priority (struct thread *t);
 #endif /* threads/thread.h */
 
