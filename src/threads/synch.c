@@ -285,11 +285,11 @@ thread_hold_the_lock(struct lock *lock)
   enum intr_level old_level = intr_disable ();
   list_insert_ordered (&thread_current ()->locks, &lock->elem, lock_cmp_priority, NULL);
 
-  if (lock->max_priority > thread_current ()->priority)
-  {
-    thread_current ()->priority = lock->max_priority;
-    thread_yield ();
-  }
+  // if (lock->max_priority > thread_current ()->priority)
+  // {
+  //   thread_current ()->priority = lock->max_priority;
+  //   thread_yield ();
+  // }
 
   intr_set_level (old_level);
 }

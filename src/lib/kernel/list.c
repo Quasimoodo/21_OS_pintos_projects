@@ -81,7 +81,7 @@ list_begin (struct list *list)
 struct list_elem *
 list_next (struct list_elem *elem)
 {
-  ASSERT (is_head (elem) || is_interior (elem));
+  ASSERT (is_head (elem) || is_interior (elem));//elem是头元素或者是内部元素，反正不是尾部元素
   return elem->next;
 }
 
@@ -453,7 +453,7 @@ list_insert_ordered (struct list *list, struct list_elem *elem,
   ASSERT (less != NULL);
 
   for (e = list_begin (list); e != list_end (list); e = list_next (e))
-    if (less (elem, e, aux))
+    if (less (elem, e, aux))//elem<e?true:false
       break;
   return list_insert (e, elem);
 }
