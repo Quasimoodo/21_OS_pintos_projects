@@ -452,9 +452,12 @@ list_insert_ordered (struct list *list, struct list_elem *elem,
   ASSERT (elem != NULL);
   ASSERT (less != NULL);
 
+  //从头开始，找到一个比elem小的e
   for (e = list_begin (list); e != list_end (list); e = list_next (e))
+    //进行优先级比较的时候elem和e的类型都是list_elem，结构体本身并不包含priority属性，需要利用list_entry()将其转换为thread结构类型
     if (less (elem, e, aux))
       break;
+  //将elem插入到e前面，并返回list  
   return list_insert (e, elem);
 }
 
