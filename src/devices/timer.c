@@ -178,7 +178,23 @@ timer_interrupt (struct intr_frame *args UNUSED)
   ticks++;
   thread_tick ();
   thread_foreach (blocked_thread_check, NULL);
+  //add
+  if (thread_mlfqs)
+  {
+    thread_mlfqs_increase_recent_cpu_by_one ();
+    /*Because of assumptions made by some of the tests, load avg must be updated exactly when the system tick counter reaches a multiple of a second,that is, when timer_ticks ()% TIMER_FREQ == 0, and not at any other time.*/
+    /*Assumptions made by some of the tests require that these recalculations of recent_cpu be made exactly when the system tick counter reaches a multiple of a second, that is, when timer_ticks () % TIMER_FREQ == 0, and not at any other time.*/
+    //也就是说，只有满足if的时候才更新load_avg和recent_cpu
+    //TIMER_FREQ实际上就是一秒ticks的次数，表达式实际上就代表1秒，即每秒执行一次更新
+    if (ticks % TIMER_FREQ == 0)
+      thread_mlfqs_update_load_avg_and_recent_cpu ();
+     /*......It is also recalculated once every fourth clock tick, for every thread.*/
+    //每4个时钟计算一次priority
+    else if (ticks % 4 == 0)
+      thread_mlfqs_update_priority (thread_current ());
+  }
 }
+
 
 /* Returns true if LOOPS iterations waits for more than one timer
    tick, otherwise false. */

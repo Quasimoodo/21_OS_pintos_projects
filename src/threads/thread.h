@@ -4,6 +4,7 @@
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
+#include "fixed_point.h"
 
 /* States in a thread's life cycle. */
 enum thread_status
@@ -82,6 +83,9 @@ typedef int tid_t;
    blocked state is on a semaphore wait list. */
 struct thread
   {
+   /* add for mission 3 */
+   int nice;//nice值，[-20,20],值越高优先级越低
+   fixed_t recent_cpu;//一个估计值，用于描述这个线程最近占用CPU的时间
    /*add three teammates*/
     int base_priority;//记录原始优先级
     struct list locks;//记录当前进程占用的锁
@@ -150,5 +154,9 @@ void thread_donate_priority (struct thread *t);
 bool lock_cmp_priority(const struct list_elem *a, const struct list_elem *b,void *aux UNUSED);
 void thread_remove_lock (struct lock *lock);
 void thread_update_priority (struct thread *t);
+//add
+void thread_mlfqs_increase_recent_cpu_by_one (void);
+void thread_mlfqs_update_load_avg_and_recent_cpu (void);
+void thread_mlfqs_update_priority (struct thread *t);
 #endif /* threads/thread.h */
 

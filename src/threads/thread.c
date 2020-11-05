@@ -11,6 +11,7 @@
 #include "threads/switch.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
+#include "threads/fixed_point.h"
 #ifdef USERPROG
 #include "userprog/process.h"
 #endif
@@ -20,6 +21,8 @@
    of thread.h for details. */
 #define THREAD_MAGIC 0xcd6abf4b
 
+//add for missiso3
+fixed_t load_avg;
 /* List of processes in THREAD_READY state, that is, processes
    that are ready to run but not actually running. */
 static struct list ready_list;
@@ -124,6 +127,7 @@ thread_init (void)
 void
 thread_start (void) 
 {
+  load_avg=FP_CONST(0);
   /* Create the idle thread. */
   struct semaphore idle_started;
   sema_init (&idle_started, 0);
@@ -454,6 +458,78 @@ thread_update_priority (struct thread *t)
 
 //end
 
+//begin
+/* Increase recent_cpu by 1. */
+/*Each time a timer interrupt occurs, recent cpu is incremented by 1 for
+the running thread only, unless the idle thread is running.*/
+void
+thread_mlfqs_increase_recent_cpu_by_one (void)
+{
+  ASSERT (thread_mlfqs);
+  ASSERT (intr_context ());//处于中断中
+
+  struct thread *current_thread = thread_current ();
+  //是idle_thread就返回
+  if (current_thread == idle_thread)
+    return;
+  //自增1
+  current_thread->recent_cpu = FP_ADD_MIX (current_thread->recent_cpu, 1);
+}
+
+/* Every per second to refresh load_avg and recent_cpu of all threads. */
+void
+thread_mlfqs_update_load_avg_and_recent_cpu (void)
+{
+  ASSERT (thread_mlfqs);
+  ASSERT (intr_context ());
+
+  size_t ready_threads = list_size (&ready_list);
+  /*ready_threads is the number of threads that are either running or ready to run at time of update (not including the idle thread).*/
+  //也就是说，ready_threads=running+ready-idle
+  if (thread_current () != idle_thread)
+    //当前运行的线程不是idle_thread，那就把自己加上
+    ready_threads++;
+    
+  //实现提供的load_avg的计算公式
+  load_avg = FP_ADD (FP_DIV_MIX (FP_MULT_MIX (load_avg, 59), 60), FP_DIV_MIX (FP_CONST (ready_threads), 60));
+
+  struct thread *t;
+  struct list_elem *e = list_begin (&all_list);
+  //对于所有线程都执行
+  for (; e != list_end (&all_list); e = list_next (e))
+  {
+    t = list_entry(e, struct thread, allelem);
+    //不是idle_thread
+    if (t != idle_thread)
+    { 
+      //实现提供的recent_cpu的计算公式
+      t->recent_cpu = FP_ADD_MIX (FP_MULT (FP_DIV (FP_MULT_MIX (load_avg, 2), FP_ADD_MIX (FP_MULT_MIX (load_avg, 2), 1)), t->recent_cpu), t->nice);
+      
+      //更新优先级（其实我不懂为啥这里计算完了要更新优先级，说好的每4ticks更新的...）
+      thread_mlfqs_update_priority (t);
+    }
+  }
+}
+/* Update priority. */
+//计算t线程的优先级
+void
+thread_mlfqs_update_priority (struct thread *t)
+{
+  if (t == idle_thread)
+    return;
+
+  ASSERT (thread_mlfqs);
+  ASSERT (t != idle_thread);
+  //实现提供的priority计算公式
+  t->priority = FP_INT_PART (FP_SUB_MIX (FP_SUB (FP_CONST (PRI_MAX), FP_DIV_MIX (t->recent_cpu, 4)), 2 * t->nice));
+  
+   /* The calculated priority is always adjusted to lie in the valid range PRI_MIN to PRI_MAX.*/
+  //防止超界
+  t->priority = t->priority < PRI_MIN ? PRI_MIN : t->priority;
+  t->priority = t->priority > PRI_MAX ? PRI_MAX : t->priority;
+}
+//end
+
 /* Returns the current thread's priority. */
 int
 thread_get_priority (void) 
@@ -466,6 +542,12 @@ void
 thread_set_nice (int nice UNUSED) 
 {
   /* Not yet implemented. */
+  //设置nice值
+  thread_current ()->nice = nice;
+  //更新优先级
+  thread_mlfqs_update_priority (thread_current ());
+  //立即重新调度
+  thread_yield ();
 }
 
 /* Returns the current thread's nice value. */
@@ -473,7 +555,7 @@ int
 thread_get_nice (void) 
 {
   /* Not yet implemented. */
-  return 0;
+  return thread_current ()->nice;
 }
 
 /* Returns 100 times the system load average. */
@@ -481,7 +563,8 @@ int
 thread_get_load_avg (void) 
 {
   /* Not yet implemented. */
-  return 0;
+  //返回100*load_avg的圆整值
+  return FP_ROUND (FP_MULT_MIX (load_avg, 100));
 }
 
 /* Returns 100 times the current thread's recent_cpu value. */
@@ -489,7 +572,8 @@ int
 thread_get_recent_cpu (void) 
 {
   /* Not yet implemented. */
-  return 0;
+  //返回100*recent_cpu的圆整值
+  return FP_ROUND (FP_MULT_MIX (thread_current ()->recent_cpu, 100));
 }
 
 /* Idle thread.  Executes when no other thread is ready to run.
@@ -581,6 +665,9 @@ init_thread (struct thread *t, const char *name, int priority)
   t->base_priority=priority;
   list_init(&t->locks);
   t->lock_waiting=NULL;
+  //add
+  t->nice=0;
+  t->recent_cpu=FP_CONST(0);
   /*list_push_back (&all_list, &t->allelem);*/
   list_insert_ordered (&all_list, &t->allelem, (list_less_func *) &thread_cmp_priority, NULL);
 }
