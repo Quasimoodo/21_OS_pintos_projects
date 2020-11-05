@@ -115,8 +115,8 @@ thread_get_recent_cpu (void)
 if (thread_mlfqs)
   {
     thread_mlfqs_increase_recent_cpu_by_one ();
-    /*Because of assumptions made by some of the tests, load avg must be 		updated exactly when the system tick counter reaches a multiple of a 		second,that is, when timer_ticks ()% TIMER_FREQ == 0, and not at any other 	   time.*/
-    /*Assumptions made by some of the tests require that these recalculations 		of recent_cpu be made exactly when the system tick counter reaches a 	  		multiple of a second, that is, when timer_ticks () % TIMER_FREQ == 0, 		  and not at any other time.*/
+    /*Because of assumptions made by some of the tests, load avg must be updated exactly when the system tick counter reaches a multiple of a second,that is, when timer_ticks ()% TIMER_FREQ == 0, and not at any other time.*/
+    /*Assumptions made by some of the tests require that these recalculations of recent_cpu be made exactly when the system tick counter reaches a multiple of a second, that is, when timer_ticks () % TIMER_FREQ == 0, and not at any other time.*/
     //也就是说，只有满足if的时候才更新load_avg和recent_cpu
     //TIMER_FREQ实际上就是一秒ticks的次数，表达式实际上就代表1秒，即每秒执行一次更新
     if (ticks % TIMER_FREQ == 0)
@@ -160,7 +160,7 @@ thread_mlfqs_update_load_avg_and_recent_cpu (void)
   ASSERT (intr_context ());
 
   size_t ready_threads = list_size (&ready_list);
-  /*ready_threads is the number of threads that are either running or ready to 	   run at time of update (not including the idle thread).*/
+  /*ready_threads is the number of threads that are either running or ready to run at time of update (not including the idle thread).*/
   //也就是说，ready_threads=running+ready-idle
   if (thread_current () != idle_thread)
     //当前运行的线程不是idle_thread，那就把自己加上
@@ -204,7 +204,7 @@ thread_mlfqs_update_priority (struct thread *t)
   //实现提供的priority计算公式
   t->priority = FP_INT_PART (FP_SUB_MIX (FP_SUB (FP_CONST (PRI_MAX), FP_DIV_MIX (t->recent_cpu, 4)), 2 * t->nice));
   
-   /* The calculated priority is always adjusted to lie in the valid range 	         PRI_MIN to PRI_MAX.*/
+   /* The calculated priority is always adjusted to lie in the valid range PRI_MIN to PRI_MAX.*/
   //防止超界
   t->priority = t->priority < PRI_MIN ? PRI_MIN : t->priority;
   t->priority = t->priority > PRI_MAX ? PRI_MAX : t->priority;
