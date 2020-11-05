@@ -83,9 +83,9 @@ typedef int tid_t;
 struct thread
   {
    /*add three teammates*/
-    int base_priority;
-    struct list locks;//进程占用的锁
-    struct lock *lock_waiting;//进程等待的锁
+    int base_priority;//记录原始优先级
+    struct list locks;//记录当前进程占用的锁
+    struct lock *lock_waiting;//记录当前进程正在等待的锁
    /*add ticks_blocked*/
     int64_t ticks_blocked;
     /* Owned by thread.c. */

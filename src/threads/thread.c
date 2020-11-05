@@ -363,15 +363,8 @@ thread_foreach (thread_action_func *func, void *aux)
     }
 }
 
-/* Sets the current thread's priority to NEW_PRIORITY. */
-// void
-// thread_set_priority (int new_priority) 
-// {
-//   thread_current ()->priority = new_priority;
-//   /*add thread_yield */
-//   thread_yield();
-// }
 //begin
+/* Sets the current thread's priority to NEW_PRIORITY. */
 void
 thread_set_priority (int new_priority)
 {
@@ -380,14 +373,15 @@ thread_set_priority (int new_priority)
 
   enum intr_level old_level = intr_disable ();
 
-  struct thread *current_thread = thread_current ();
-  int old_priority = current_thread->priority;
-  current_thread->base_priority = new_priority;
+  struct thread *current_thread = thread_current ();//获取当前线程
+  int old_priority = current_thread->priority;//保存当前线程的优先级
+  current_thread->base_priority = new_priority;//修改当前线程的初始优先级
 
+  //如果这个线程不占有锁或者new>old时
   if (list_empty (&current_thread->locks) || new_priority > old_priority)
   {
-    current_thread->priority = new_priority;
-    thread_yield ();
+    current_thread->priority = new_priority;//更新优先级
+    thread_yield ();//立即发起调度
   }
 
   intr_set_level (old_level);
@@ -398,14 +392,20 @@ thread_set_priority (int new_priority)
 void
 thread_donate_priority (struct thread *t)
 {
+  //禁用中断
   enum intr_level old_level = intr_disable ();
+  //更新t线程的优先级
   thread_update_priority (t);
-
+  //如果t处于就绪状态
   if (t->status == THREAD_READY)
   {
+    //将t移出就绪队列
     list_remove (&t->elem);
+    //再将t重新插入队列中
     list_insert_ordered (&ready_list, &t->elem, thread_cmp_priority, NULL);
+    //这两步就是在t改变了优先级之后重新排了一下序
   }
+  //照常恢复中断
   intr_set_level (old_level);
 }
 
@@ -419,8 +419,11 @@ void
 thread_remove_lock (struct lock *lock)
 {
   enum intr_level old_level = intr_disable ();
+  //将lock移出线程当前占有的锁队列中
   list_remove (&lock->elem);
+  //更新当前线程的优先级
   thread_update_priority (thread_current ());
+  //as before
   intr_set_level (old_level);
 }
 /* Update priority. */
@@ -428,17 +431,23 @@ void
 thread_update_priority (struct thread *t)
 {
   enum intr_level old_level = intr_disable ();
-  int max_priority = t->base_priority;
-  int lock_priority;
+  int max_priority = t->base_priority;//获取初始优先级
+  int lock_priority;//获取锁的请求者中具有的最大优先级
 
+  //线程t占有锁
   if (!list_empty (&t->locks))
   {
+    //对这些锁按照lock->max_priority排序
     list_sort (&t->locks, lock_cmp_priority, NULL);
+    //获取所有lock->max_priority中的最大值
     lock_priority = list_entry (list_front (&t->locks), struct lock, elem)->max_priority;
+    //如果这个最大值大于线程t的初始优先级
     if (lock_priority > max_priority)
+      //save it
       max_priority = lock_priority;
   }
 
+  //将t的优先级修改为最大值
   t->priority = max_priority;
   intr_set_level (old_level);
 }

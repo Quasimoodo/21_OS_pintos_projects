@@ -86,6 +86,8 @@ sema_down (struct semaphore *sema)
   old_level = intr_disable ();
   while (sema->value == 0)
     {
+
+      //按优先级插入信号量等待者队列
       list_insert_ordered (&sema->waiters, &thread_current ()->elem, thread_cmp_priority, NULL);
       thread_block ();
     }
@@ -149,6 +151,7 @@ sema_up (struct semaphore *sema)
   old_level = intr_disable ();
   if (!list_empty (&sema->waiters))
   {
+    //对信号量的等待着队列进行排序
     list_sort (&sema->waiters, thread_cmp_priority, NULL);
     thread_unblock (list_entry (list_pop_front (&sema->waiters), struct thread, elem));
   }
@@ -242,55 +245,77 @@ lock_init (struct lock *lock)
 void
 lock_acquire (struct lock *lock)
 {
-  struct thread *current_thread = thread_current ();
+  struct thread *current_thread = thread_current ();//获取当前运行的线程
   struct lock *l;
   enum intr_level old_level;
 
-  ASSERT (lock != NULL);
-  ASSERT (!intr_context ());
-  ASSERT (!lock_held_by_current_thread (lock));
+  ASSERT (lock != NULL);//锁不为空
+  ASSERT (!intr_context ());//当前未处于外中断
+  ASSERT (!lock_held_by_current_thread (lock));//当前线程未占有这个锁
 
+  //如果锁被其他线程占用，并且不是mlfqs设置
+  //此处用于向前捐赠优先级
   if (lock->holder != NULL && !thread_mlfqs)
   {
+    //当前线程正在等待这个锁
     current_thread->lock_waiting = lock;
     l = lock;
+    //锁不为空，且当前贤臣俄国的优先级高于这个锁的请求者中的最大优先级
     while (l && current_thread->priority > l->max_priority)
     {
+      //将锁的请求者中的最大优先级修改为当前线程的优先级
       l->max_priority = current_thread->priority;
+      //向这个锁的占用者捐赠优先级
       thread_donate_priority (l->holder);
+      //看看这个锁的拥有者是否在等待其他锁
       l = l->holder->lock_waiting;
     }
   }
 
+  //P操作
   sema_down (&lock->semaphore);
 
+  //禁用中断
   old_level = intr_disable ();
 
   current_thread = thread_current ();
   if (!thread_mlfqs)
   {
+    //现在没有等待的锁了
     current_thread->lock_waiting = NULL;
+    //当前线程抢到了这个锁，那么这个锁的优先级必然是最大的
     lock->max_priority = current_thread->priority;
+    //当前线程获得锁
     thread_hold_the_lock (lock);
   }
+  //将锁的占用者设置为当前这个线程
   lock->holder = current_thread;
 
+  //恢复中断
   intr_set_level (old_level);
 }
 
-/* Let thread hold a lock */
+/* 就是让线程获得这个锁 */
 void
 thread_hold_the_lock(struct lock *lock)
 {
+  //禁用中断
   enum intr_level old_level = intr_disable ();
+  //将这个锁按照优先级插入当前线程占用的锁的队列
   list_insert_ordered (&thread_current ()->locks, &lock->elem, lock_cmp_priority, NULL);
+  
+  //这里经过我们小组讨论，当前线程已经关闭了中断，保证了操作的原子化
+  //已经不需要判断与最大优先级的关系了，因为已经是最大了。
 
+  //如果这个锁的请求者的最大优先级大于当前线程的优先级
   // if (lock->max_priority > thread_current ()->priority)
   // {
+       //发生优先级捐赠
   //   thread_current ()->priority = lock->max_priority;
+       //立刻按照优先级重新调度
   //   thread_yield ();
   // }
-
+  //回复中断
   intr_set_level (old_level);
 }
 
@@ -413,19 +438,9 @@ cond_wait (struct condition *cond, struct lock *lock)
    An interrupt handler cannot acquire a lock, so it does not
    make sense to try to signal a condition variable within an
    interrupt handler. */
-// void
-// cond_signal (struct condition *cond, struct lock *lock UNUSED) 
-// {
-//   ASSERT (cond != NULL);
-//   ASSERT (lock != NULL);
-//   ASSERT (!intr_context ());
-//   ASSERT (lock_held_by_current_thread (lock));
 
-//   if (!list_empty (&cond->waiters)) 
-//     sema_up (&list_entry (list_pop_front (&cond->waiters),
-//                           struct semaphore_elem, elem)->semaphore);
-// }
 //begin
+/* 比较函数 */
 bool
 cond_sema_cmp_priority (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
 {
@@ -443,11 +458,11 @@ cond_signal (struct condition *cond, struct lock *lock UNUSED)
 
   if (!list_empty (&cond->waiters))
   {
+    //对条件变量的等待者队列进行排序
     list_sort (&cond->waiters, cond_sema_cmp_priority, NULL);
     sema_up (&list_entry (list_pop_front (&cond->waiters), struct semaphore_elem, elem)->semaphore);
   }
 }
-/* cond sema comparation function */
 
 //end
 
