@@ -145,7 +145,7 @@ is_thread()
 
 问题：
  
-  为什么timer.c 99，100行的内容必须？
+  为什么timer.c 99，100行的内容必须？——看看测试用例
   如何实现的每个tick调用一次中断？
 解决:
  将timer_sleep()的内容重做：
@@ -153,6 +153,7 @@ is_thread()
  在每个timer_interrupt()的时候，调用将每个线程检查其block，若正在block，则减一个ticks，若ticks_toblock为0，则将其unblock()；
  unblock():将其放入readyqueue中
  同时设置创建时的toblock为0；aob
+ //这里应该可以把那两句改掉
 
 
 
@@ -237,7 +238,7 @@ priority_fifo.c 大概是创建若干优先级相同而低于当前线程的线�
 thread_create()，创建了就加入到就绪队列里
 
 对priority-donate-one的研究：
-在lock中记录一个pri,在acquire的时候记录其值，同时在create中加入检测锁的pri并重置
+在lock中记录一个pri,在acquire的时候记录其值，同时在等待锁的时候，acquire中加入检测锁的pri并重置
 在thread结构体中加一个被set的priority的栈，不断适应并逐级弹出
 
 维护的锁的waitlist也应该改成优先队列？
@@ -254,8 +255,9 @@ thread_create()，创建了就加入到就绪队列里
 
 
 问题：
-  为什么sema_down可以屏蔽那么久的中断？
-  一个线程的函数执行完了会咋样？
+  为什么sema_down可以屏蔽那么久的中断？——仅当前线程
+  一个线程的函数执行完了会咋样？//dying，exit（）之后
+  到底哪里需要屏蔽中断？
 
 
 `struct thread' is always at the beginning of a page

@@ -86,7 +86,7 @@ timer_elapsed (int64_t then)
 
 /* Sleeps for approximately TICKS timer ticks.  Interrupts must
    be turned on. */
-void
+void//
 timer_sleep (int64_t ticks) //持续检查，不到就yield，就是题中所说的忙等待
 {//获得函数运行时的ticks，然后不断检查当前ticks和初始的差是否达到参数，过程中持续yeild
 /*原来的

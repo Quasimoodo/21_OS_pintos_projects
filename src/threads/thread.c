@@ -22,8 +22,8 @@
 
 /* List of processes in THREAD_READY state, that is, processes
    that are ready to run but not actually running. */
-static struct list ready_list;
 
+static struct list ready_list;
 /* List of all processes.  Processes are added to this list
    when they are first scheduled and removed when they exit. */
 static struct list all_list;
@@ -137,6 +137,15 @@ thread_tick (void)
   /* Enforce preemption. */
   if (++thread_ticks >= TIME_SLICE)
     intr_yield_on_return ();
+}
+void donate(struct thread *t)
+{
+  if(t->status==THREAD_READY)//之所以这样搞而不直接使用sort是为了让这个能够在原有的后面。
+      {
+        list_remove(&t->elem);
+        list_insert_ordered(&ready_list,&t->elem,(list_less_func*)&thread_cmp_priority,NULL);
+
+      }
 }
 
 /* Prints thread statistics. */
@@ -353,9 +362,28 @@ thread_foreach (thread_action_func *func, void *aux)
 void
 thread_set_priority (int new_priority) 
 {
+  /*
   thread_current ()->priority = new_priority;
   //new
   thread_yield();
+  */
+ if(thread_mlfqs)
+ {
+   return ;
+ }
+ enum intr_level old_level = intr_disable ();
+
+  struct thread *current_thread = thread_current ();
+  int old_priority = current_thread->priority;
+  current_thread->ori_priority = new_priority;
+
+  if (list_empty (&current_thread->lock_helding) || new_priority > old_priority)
+  {
+    current_thread->priority = new_priority;
+    thread_yield ();
+  }
+
+  intr_set_level (old_level);
 }
 
 /* Returns the current thread's priority. */
@@ -481,6 +509,10 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
   t->magic = THREAD_MAGIC;
+  //new
+  t->ori_priority = priority;
+  list_init (&t->lock_helding);
+  t->lock_waiting = NULL;
   //list_push_back (&all_list, &t->allelem);
     list_insert_ordered(&all_list,&t->allelem,(list_less_func*)&thread_cmp_priority,NULL);
 }
@@ -593,9 +625,9 @@ void check_blocked_thread (struct thread *t, void *aux UNUSED)
   }
 }
 /*new compare priority between two threads to accmoplish a native pri queue*/
-bool thread_cmp_priority(const struct list_elem *a, const struct list_elem *b, void *aux)
+bool thread_cmp_priority(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
 {
-  return list_entry(a,struct thread, elem)->priority>list_entry(b,struct thread, elem)->priority;
+  return list_entry(a,struct thread, elem)->priority > list_entry(b,struct thread, elem)->priority;
 }
 
 /* Returns a tid to use for a new thread. */

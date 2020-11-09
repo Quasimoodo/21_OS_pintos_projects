@@ -42,6 +42,11 @@ void cond_init (struct condition *);
 void cond_wait (struct condition *, struct lock *);
 void cond_signal (struct condition *, struct lock *);
 void cond_broadcast (struct condition *, struct lock *);
+
+
+//new
+void thread_update_priority(struct thread *t);
+bool lock_cmp_priority(const struct list_elem *a, const struct list_elem *b, void *aux);//按maxpri降序排列
 /* Optimization barrier.
 
    The compiler will not reorder operations across an
