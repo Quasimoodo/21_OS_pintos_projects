@@ -4,7 +4,8 @@
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
-
+//新加的
+#include "threads/synch.h"
 /* States in a thread's life cycle. */
 enum thread_status
   {
@@ -96,8 +97,23 @@ struct thread
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
+  
 #endif
-
+     //add
+    struct ret_msg
+    {
+       int tid;
+       int ret;//返回值
+       struct list_elem ret_elem;
+    };
+    int ret;
+    struct list sons_msg;
+ //   struct list sons;
+    bool wait;//false为没有被father等待，要在
+    bool saved;
+    struct thread *father;
+    struct semaphore sema_wait;//父子进程依靠此信号量进行等待时的通信
+    struct list_elem son_elem;
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
   };
@@ -137,5 +153,5 @@ int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
-
+struct thread *thread_get_bytid(tid_t tid,struct thread *fa);
 #endif /* threads/thread.h */

@@ -25,6 +25,11 @@ static bool load (const char *cmdline, void (**eip) (void), void **esp);
    FILENAME.  The new thread may be scheduled (and may even exit)
    before process_execute() returns.  Returns the new process's
    thread id, or TID_ERROR if the thread cannot be created. */
+   /*
+   利用palloc_get_page()返回一个指针，而后将文件名传到这个指针里面
+   然后利用文件名创建一个thread，返回tid
+   其线程函数体是start_process()
+   */
 tid_t
 process_execute (const char *file_name) 
 {
@@ -37,9 +42,15 @@ process_execute (const char *file_name)
   if (fn_copy == NULL)
     return TID_ERROR;
   strlcpy (fn_copy, file_name, PGSIZE);
+  /*这里开始修改
+  */
+ char *namee,*save_ptr;//ture name & a middle pointer
+ namee=strtok_r(file_name," ",&save_ptr);
+
+
 
   /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
+  tid = thread_create (namee, PRI_DEFAULT, start_process, fn_copy);
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy); 
   return tid;
@@ -47,6 +58,12 @@ process_execute (const char *file_name)
 
 /* A thread function that loads a user process and starts it
    running. */
+   /*
+   先声明了一个栈帧，然后对他初始化，下来load
+   成功的话就利用类似中断的机制跳到代码执行？
+   传了一个栈顶指针esp和指令指针eip的指针
+   所以load应该是要给这两个指针指向具体的位置，即分配代码段和数据段
+   */
 static void
 start_process (void *file_name_)
 {
@@ -59,10 +76,42 @@ start_process (void *file_name_)
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
-  success = load (file_name, &if_.eip, &if_.esp);
-
+  /*修改
+  */
+  char *namee=NULL,*save_ptr=NULL;
+  namee=strtok_r(file_name," ",&save_ptr);
+  success = load (namee, &if_.eip, &if_.esp);
+  //esp在load中赋值
+  char *esp=(char*)if_.esp;
+  char *arg[64];//最多只有二十多个
+  int cnt=0,i;
+  for(;namee!=NULL;namee=strtok_r(NULL," ",&save_ptr))
+  //使用namee作为字符串分割的迭代器
+  {
+    esp-=strlen(namee)+1;
+    strlcpy(esp,namee,strlen(namee)+1);//这里有点疑问
+    arg[cnt++]=esp;//arg[n]为空
+  }
+  while((int)esp%4!=0)//四字对齐
+  {
+    esp--;
+  }
+  int *p=esp-4;
+  *p--=0;//fake return add
+  i=cnt;
+  while(i>=0)
+  {
+    *p--=(int*)arg[--i];//先--，所以cnt不会被方
+  }
+  *p--=p+1;//arg的值
+  *p--=cnt;//参数个数+1
+  *p--=0;//空指针，pinto文档最下面的字符画说的这个
+  esp=p+1;
+  if_.esp=esp;
+  //修改结束
   /* If load failed, quit. */
   palloc_free_page (file_name);
+  //下面这两行似乎要挪到前面
   if (!success) 
     thread_exit ();
 
@@ -85,13 +134,65 @@ start_process (void *file_name_)
 
    This function will be implemented in problem 2-2.  For now, it
    does nothing. */
+   //子进程不存在、或已被成功调用，或被内核结束（exeception结束），返回-1
+   //返回其结束状态
+   //根据其是否结束，分为等待或不等待。
+   //要等的一定是调用者的子进程
 int
-process_wait (tid_t child_tid UNUSED) 
+process_wait (tid_t child_tid ) 
 {
-  return -1;
+ // return -1;
+ int ret=-1;
+ struct thread *child = thread_get_bytid(child_tid,thread_current());
+
+ if(child==NULL||child->status==THREAD_DYING)
+ {
+   return -1;
+ }
+ if(child->saved)
+ {
+   ret=get_retmsg(child_tid);//这时子进程的资源已经被释放了，所以返回消息要保存在父进程中
+   return ret;
+ }
+ child->wait=true;//有人等了，返回时要操作信号量
+ sema_down(&thread_current()->sema_wait);
+  ret=get_retmsg(child_tid);
+  return ret;
 }
 
+//new
+//查找当前线程保存的返回信息列表里面符合要求的
+int get_retmsg(tid_t tid)
+{
+  struct list_elem *e;
+  struct thread *now_thread=thread_current();
+  int ret;
+  for(e=list_begin(&(now_thread->sons_msg));e!=list_end(&(now_thread->sons_msg));e=list_next(e))
+  {
+    struct ret_msg *t=list_entry(e,struct ret_msg,ret_elem);//ret_elem
+    if (t->tid==tid)//？这样写对吗
+    {
+     ret=t->ret;
+     t->ret=-1;//被多次等待返回-1
+     return ret;
+    }
+  }
+  return -2;//查错用
+}
+//new
+//保存返回值，将其加入父线程返回值队列。
+void thread_record_ret(struct thread *t,int tid,int ret)
+{
+  struct ret_msg  *r=(struct ret_msg *)malloc(sizeof (struct ret_msg));
+  r->ret=ret;
+  r->tid=tid;
+  list_push_back(&t->sons_msg,&r->ret_elem);
+
+}
+
+
 /* Free the current process's resources. */
+// 系统线程没有页表
 void
 process_exit (void)
 {
@@ -110,6 +211,23 @@ process_exit (void)
          directory before destroying the process's page
          directory, or our active page directory will be one
          that's been freed (and cleared). */
+      
+
+      printf ("%s: exit(%d)\n",cur->name,cur->ret);//
+      thread_record_ret(cur->father,cur->tid,cur->ret);
+      cur->saved=true;
+      if(cur->father!=NULL&&cur->wait)//等他呢
+      {
+        while(!list_empty(&cur->father->sema_wait.waiters))//参考了网上的写法，虽然不太可能有多个线程等待一个（等待非自己孩子的直接返回-1）
+        {
+          sema_up(&cur->father->sema_wait);
+        }
+      }
+      while(!list_empty(&cur->sons_msg))//依据指针去释放返回值列表，毕竟每一个都malloc过
+      {
+        struct ret_msg *r=list_entry(list_pop_front(&cur->sons_msg),struct ret_msg,ret_elem);
+       // free(r);
+      }
       cur->pagedir = NULL;
       pagedir_activate (NULL);
       pagedir_destroy (pd);

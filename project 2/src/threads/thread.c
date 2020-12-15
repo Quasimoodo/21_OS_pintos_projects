@@ -184,6 +184,14 @@ thread_create (const char *name, int priority,
   init_thread (t, name, priority);
   tid = t->tid = allocate_tid ();
 
+  //new
+  struct thread *current=thread_current();
+  t->wait=false;
+  t->saved=false;
+  t->father=current;
+  t->ret=0;//暂时先这么放
+  sema_init (&t->sema_wait, 0);
+  list_init(&t->sons_msg);
   /* Prepare thread for first run by initializing its stack.
      Do this atomically so intermediate values for the 'stack' 
      member cannot be observed. */
@@ -337,6 +345,26 @@ thread_foreach (thread_action_func *func, void *aux)
       struct thread *t = list_entry (e, struct thread, allelem);
       func (t, aux);
     }
+}
+//new
+//通过便利一个线程的子线程列表返回是否有符合tid的线程指针
+//要求在创建新线程时加入
+//不再使用子线程列表而是用all_list列表 降低效率的同时易于维护
+struct thread *thread_get_bytid(tid_t tid,struct thread *fa)
+{
+  struct list_elem *e;
+  //关中断？
+  struct thread *now_thread=thread_current();
+  for (e = list_begin (&all_list); e != list_end (&all_list);
+       e = list_next (e))
+  {
+      struct thread *t = list_entry (e, struct thread, allelem);
+    if (t->tid==tid&&t->father==fa)
+    {
+      return t;
+    }
+  }
+  return NULL;
 }
 
 /* Sets the current thread's priority to NEW_PRIORITY. */
